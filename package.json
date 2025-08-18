@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-zep-v3",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Community nodes: Zep Memory (v3) & Zep Vector Store (v3)",
   "keywords": [
     "n8n-community-node-package",
@@ -25,10 +25,11 @@
   "license": "MIT",
   "main": "dist/index.js",
   "files": [
-    "dist"
+    "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && npm run copy-icons",
+    "copy-icons": "cp nodes/ZepMemory/zep-logo.png dist/nodes/ZepMemory/ && cp nodes/ZepVectorStore/zep-logo.png dist/nodes/ZepVectorStore/",
     "watch": "tsc -w -p tsconfig.build.json",
     "lint": "eslint nodes credentials --ext .ts"
   },
