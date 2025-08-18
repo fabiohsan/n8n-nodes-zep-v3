@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-zep-v3",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Community nodes: Zep Memory (v3) & Zep Vector Store (v3)",
   "keywords": [
     "n8n-community-node-package",
@@ -24,9 +24,6 @@
   "homepage": "https://github.com/fabiohsan/n8n-nodes-zep-v3#readme",
   "license": "MIT",
   "main": "index.js",
-  "engines": {
-    "node": ">=18.10.0"
-  },
   "files": [
     "index.js",
     "dist/**/*"
@@ -38,8 +35,7 @@
     "lint": "eslint nodes credentials --ext .ts"
   },
   "peerDependencies": {
-    "n8n-workflow": "*",
-    "n8n-core": "*"
+    "n8n-workflow": ">=1.0.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
