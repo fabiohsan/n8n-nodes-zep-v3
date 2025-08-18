@@ -1,11 +1,15 @@
 {
   "name": "n8n-nodes-zep-v3",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Community nodes: Zep Memory (v3) & Zep Vector Store (v3)",
-  "keywords": ["n8n-community-node-package"],
+  "keywords": [
+    "n8n-community-node-package"
+  ],
   "license": "MIT",
   "main": "dist/index.js",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "watch": "tsc -w -p tsconfig.build.json",
@@ -21,7 +25,9 @@
   },
   "n8n": {
     "n8nNodesApiVersion": 1,
-    "credentials": ["dist/credentials/ZepApiV3.credentials.js"],
+    "credentials": [
+      "dist/credentials/ZepApiV3.credentials.js"
+    ],
     "nodes": [
       "dist/nodes/ZepMemory/ZepMemory.node.js",
       "dist/nodes/ZepVectorStore/ZepVectorStore.node.js"
