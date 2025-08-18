@@ -32,4 +32,7 @@ pids
 .npm
 
 # ESLint cache
-.eslintcache.claude/
+.eslintcache
+
+# Claude Code
+.claude/
