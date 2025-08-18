@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-zep-v3",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Community nodes: Zep Memory (v3) & Zep Vector Store (v3)",
   "keywords": [
     "n8n-community-node-package",
@@ -23,7 +23,6 @@
   },
   "homepage": "https://github.com/fabiohsan/n8n-nodes-zep-v3#readme",
   "license": "MIT",
-  "main": "dist/index.js",
   "files": [
     "dist/**/*"
   ],
