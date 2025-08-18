@@ -1,10 +1,27 @@
 {
   "name": "n8n-nodes-zep-v3",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Community nodes: Zep Memory (v3) & Zep Vector Store (v3)",
   "keywords": [
-    "n8n-community-node-package"
+    "n8n-community-node-package",
+    "zep",
+    "memory",
+    "vector-store",
+    "ai",
+    "langchain"
   ],
+  "author": {
+    "name": "Fabio Henrique",
+    "email": "fabiohsan@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fabiohsan/n8n-nodes-zep-v3.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fabiohsan/n8n-nodes-zep-v3/issues"
+  },
+  "homepage": "https://github.com/fabiohsan/n8n-nodes-zep-v3#readme",
   "license": "MIT",
   "main": "dist/index.js",
   "files": [
@@ -15,9 +32,11 @@
     "watch": "tsc -w -p tsconfig.build.json",
     "lint": "eslint nodes credentials --ext .ts"
   },
+  "peerDependencies": {
+    "n8n-workflow": "*",
+    "n8n-core": "*"
+  },
   "devDependencies": {
-    "n8n-workflow": "^1.40.0",
-    "n8n-core": "^1.40.0",
     "typescript": "^5.4.0",
     "ts-node": "^10.9.2",
     "eslint": "^8.57.0",
