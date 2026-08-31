@@ -1,8 +1,14 @@
-import type { ICredentialType, INodeProperties } from 'n8n-workflow';
+import type {
+  IAuthenticateGeneric,
+  ICredentialTestRequest,
+  ICredentialType,
+  INodeProperties,
+} from 'n8n-workflow';
 
 export class ZepApiV3 implements ICredentialType {
   name = 'zepApiV3';
   displayName = 'Zep API (v3)';
+  documentationUrl = 'https://docs.getzep.com';
   properties: INodeProperties[] = [
     {
       displayName: 'API Key',
@@ -10,7 +16,8 @@ export class ZepApiV3 implements ICredentialType {
       type: 'string',
       typeOptions: { password: true },
       default: '',
-      description: 'Zep API key. Header format: <code>Authorization: Api-Key &lt;token&gt;</code>',
+      required: true,
+      description: 'Zep API key. Header format: Authorization: Api-Key <token>',
     },
     {
       displayName: 'Base URL',
@@ -18,26 +25,26 @@ export class ZepApiV3 implements ICredentialType {
       type: 'string',
       default: 'https://api.getzep.com',
       placeholder: 'https://api.getzep.com',
+      description: 'Base URL for Zep API. Default is https://api.getzep.com for Zep Cloud.',
     },
   ];
 
-  // Attach default headers for all HTTP requests using these credentials
-  authenticate = {
+  authenticate: IAuthenticateGeneric = {
     type: 'generic',
     properties: {
       headers: {
-        Authorization: 'Api-Key {{$credentials.apiKey}}',
+        Authorization: '=Api-Key {{$credentials.apiKey}}',
         'Content-Type': 'application/json',
       },
     },
-  } as const;
+  };
 
-  // Simple connectivity test: list threads (works with Zep Cloud & self-hosted)
-  test = {
+  test: ICredentialTestRequest = {
     request: {
       baseURL: '={{$credentials.baseUrl}}',
       url: '/api/v2/threads',
       method: 'GET',
     },
-  } as const;
+  };
 }
+

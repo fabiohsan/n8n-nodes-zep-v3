@@ -1,15 +1,20 @@
-import type {
-  IExecuteFunctions,
-  INodeExecutionData,
-  INodeType,
-  INodeTypeDescription,
+import {
+  NodeApiError,
+  NodeOperationError,
+  type IExecuteFunctions,
+  type INodeExecutionData,
+  type INodeType,
+  type INodeTypeDescription,
+  type ISupplyDataFunctions,
+  type SupplyData,
+  type NodeConnectionType,
 } from 'n8n-workflow';
 
 // Minimal in-process memory adapter that n8n AI nodes can consume via the `ai_memory` port.
-// It exposes methods n8n expects: getMessages, addMessages, clear.
+// It exposes methods expected by LangChain chat memory integrations and n8n AI Agent.
 class ZepV3MemoryAdapter {
   constructor(
-    private http: IExecuteFunctions,
+    private context: IExecuteFunctions | ISupplyDataFunctions,
     private baseUrl: string,
     private threadId: string,
     private mode: 'basic' | 'summary',
@@ -17,46 +22,113 @@ class ZepV3MemoryAdapter {
   ) {}
 
   async getMessages() {
-    // v3: GET /api/v2/threads/:threadId/messages
-    const res = await this.http.helpers.httpRequest({
-      baseURL: this.baseUrl,
-      url: `/api/v2/threads/${this.threadId}/messages`,
-      method: 'GET',
-    });
-    // Return as array of { role, content, name? }
-    return (res?.messages ?? []).map((m: any) => ({ role: m.role, content: m.content, name: m.name }));
+    try {
+      const res = await this.context.helpers.httpRequestWithAuthentication.call(
+        this.context,
+        'zepApiV3',
+        {
+          baseURL: this.baseUrl,
+          url: `/api/v2/threads/${encodeURIComponent(this.threadId)}/messages`,
+          method: 'GET',
+        },
+      );
+      // Return as array of { role, content, name? }
+      return (res?.messages ?? []).map((m: any) => ({
+        role: m.role,
+        content: m.content,
+        name: m.name,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   async addMessages(messages: Array<{ role: string; content: string; name?: string }>) {
-    // v3: POST /api/v2/threads/:threadId/messages
     const body = { messages, return_context: this.returnContext };
-    return this.http.helpers.httpRequest({
-      baseURL: this.baseUrl,
-      url: `/api/v2/threads/${this.threadId}/messages`,
-      method: 'POST',
-      body,
-    });
+    return this.context.helpers.httpRequestWithAuthentication.call(
+      this.context,
+      'zepApiV3',
+      {
+        baseURL: this.baseUrl,
+        url: `/api/v2/threads/${encodeURIComponent(this.threadId)}/messages`,
+        method: 'POST',
+        body,
+      },
+    );
+  }
+
+  async addUserMessage(message: string) {
+    return this.addMessages([{ role: 'user', content: message }]);
+  }
+
+  async addAIChatMessage(message: string) {
+    return this.addMessages([{ role: 'assistant', content: message }]);
   }
 
   async getUserContext() {
-    // v3: GET /api/v2/threads/:threadId/context?mode=basic|summary
-    const res = await this.http.helpers.httpRequest({
-      baseURL: this.baseUrl,
-      url: `/api/v2/threads/${this.threadId}/context`,
-      method: 'GET',
-      qs: { mode: this.mode },
-    });
-    return res?.context ?? '';
+    try {
+      const res = await this.context.helpers.httpRequestWithAuthentication.call(
+        this.context,
+        'zepApiV3',
+        {
+          baseURL: this.baseUrl,
+          url: `/api/v2/threads/${encodeURIComponent(this.threadId)}/context`,
+          method: 'GET',
+          qs: { mode: this.mode },
+        },
+      );
+      return res?.context ?? '';
+    } catch {
+      return '';
+    }
   }
 
   async clear() {
-    // v3: DELETE /api/v2/threads/:threadId
-    await this.http.helpers.httpRequest({
-      baseURL: this.baseUrl,
-      url: `/api/v2/threads/${this.threadId}`,
-      method: 'DELETE',
+    try {
+      await this.context.helpers.httpRequestWithAuthentication.call(
+        this.context,
+        'zepApiV3',
+        {
+          baseURL: this.baseUrl,
+          url: `/api/v2/threads/${encodeURIComponent(this.threadId)}`,
+          method: 'DELETE',
+        },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+async function ensureThread(
+  context: IExecuteFunctions | ISupplyDataFunctions,
+  baseUrl: string,
+  threadId: string,
+  userId?: string,
+) {
+  try {
+    await context.helpers.httpRequestWithAuthentication.call(context, 'zepApiV3', {
+      baseURL: baseUrl,
+      url: `/api/v2/threads/${encodeURIComponent(threadId)}`,
+      method: 'GET',
     });
-    return true;
+  } catch (error: any) {
+    const statusCode = error?.statusCode || error?.response?.status || error?.httpCode;
+    if (statusCode === 404 || statusCode === '404' || String(error?.message).includes('404')) {
+      try {
+        await context.helpers.httpRequestWithAuthentication.call(context, 'zepApiV3', {
+          baseURL: baseUrl,
+          url: '/api/v2/threads',
+          method: 'POST',
+          body: { thread_id: threadId, ...(userId ? { user_id: userId } : {}) },
+        });
+      } catch (createError: any) {
+        throw new NodeApiError(context.getNode(), createError);
+      }
+    } else {
+      throw new NodeApiError(context.getNode(), error);
+    }
   }
 }
 
@@ -67,12 +139,11 @@ export class ZepMemoryV3 implements INodeType {
     icon: 'file:zep-logo.png',
     group: ['transform'],
     version: 1,
-    subtitle: 'Threads & User Context',
+    subtitle: '={{$parameter["sessionId"]}}',
     description: 'Use Zep v3 Threads as chat memory',
     defaults: { name: 'Zep Memory (v3)' },
-    // Sub-node: no data inputs, special AI output
     inputs: [],
-    outputs: ['ai_memory'],
+    outputs: ['ai_memory' as NodeConnectionType],
     credentials: [{ name: 'zepApiV3', required: true }],
     properties: [
       {
@@ -89,8 +160,8 @@ export class ZepMemoryV3 implements INodeType {
         name: 'mode',
         type: 'options',
         options: [
-          { name: 'Basic (matches v2 memory.get)', value: 'basic' },
-          { name: 'Summary (default in v3)', value: 'summary' },
+          { name: 'Basic (Matches v2 Memory.get)', value: 'basic' },
+          { name: 'Summary (Default in v3)', value: 'summary' },
         ],
         default: 'basic',
         description: 'Context flavor for retrieval from Zep',
@@ -101,15 +172,14 @@ export class ZepMemoryV3 implements INodeType {
         type: 'boolean',
         default: false,
         description:
-          'If enabled, thread.add_messages will return the (basic) context block alongside message UUIDs',
+          'Whether thread.add_messages will return the context block alongside message UUIDs',
       },
       {
-        displayName: 'Auto-create Thread',
+        displayName: 'Auto-Create Thread',
         name: 'autoCreate',
         type: 'boolean',
         default: true,
-        description:
-          'If enabled, create the thread in Zep on first use if it doesn\'t exist',
+        description: 'Whether to create the thread in Zep on first use if it does not exist',
       },
       {
         displayName: 'User ID',
@@ -117,45 +187,58 @@ export class ZepMemoryV3 implements INodeType {
         type: 'string',
         default: '',
         description:
-          'Optional user_id to associate with the thread (helps cross-thread graph building)',
+          'Optional user_id to associate with the thread (helps cross-thread knowledge graph building)',
       },
     ],
   };
 
-  async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+  async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
     const credentials = await this.getCredentials('zepApiV3');
-    const baseUrl = credentials.baseUrl as string;
+    const baseUrl = (credentials.baseUrl as string) || 'https://api.getzep.com';
 
-    const threadId = this.getNodeParameter('sessionId', 0) as string;
-    const autoCreate = this.getNodeParameter('autoCreate', 0) as boolean;
-    const userId = (this.getNodeParameter('userId', 0) as string) || undefined;
-    const mode = (this.getNodeParameter('mode', 0) as 'basic' | 'summary') ?? 'basic';
-    const returnContext = (this.getNodeParameter('returnContext', 0) as boolean) ?? false;
+    const threadId = this.getNodeParameter('sessionId', itemIndex) as string;
+    const autoCreate = this.getNodeParameter('autoCreate', itemIndex, true) as boolean;
+    const userId = (this.getNodeParameter('userId', itemIndex, '') as string) || undefined;
+    const mode = (this.getNodeParameter('mode', itemIndex, 'basic') as 'basic' | 'summary');
+    const returnContext = this.getNodeParameter('returnContext', itemIndex, false) as boolean;
 
-    // Optionally create the thread if it does not exist
-    if (autoCreate) {
-      try {
-        await this.helpers.httpRequest({
-          baseURL: baseUrl,
-          url: `/api/v2/threads/${threadId}`,
-          method: 'GET',
-        });
-      } catch {
-        await this.helpers.httpRequest({
-          baseURL: baseUrl,
-          url: `/api/v2/threads`,
-          method: 'POST',
-          body: { thread_id: threadId, user_id: userId },
-        });
-      }
+    if (!threadId) {
+      throw new NodeOperationError(this.getNode(), 'Session ID is required for Zep Memory');
     }
 
-    // Expose an adapter instance on the special AI memory port
+    if (autoCreate) {
+      await ensureThread(this, baseUrl, threadId, userId);
+    }
+
+    const adapter = new ZepV3MemoryAdapter(this, baseUrl, threadId, mode, returnContext);
+
+    return {
+      response: adapter,
+    };
+  }
+
+  async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+    const credentials = await this.getCredentials('zepApiV3');
+    const baseUrl = (credentials.baseUrl as string) || 'https://api.getzep.com';
+
+    const threadId = this.getNodeParameter('sessionId', 0) as string;
+    const autoCreate = this.getNodeParameter('autoCreate', 0, true) as boolean;
+    const userId = (this.getNodeParameter('userId', 0, '') as string) || undefined;
+    const mode = (this.getNodeParameter('mode', 0, 'basic') as 'basic' | 'summary');
+    const returnContext = this.getNodeParameter('returnContext', 0, false) as boolean;
+
+    if (!threadId) {
+      throw new NodeOperationError(this.getNode(), 'Session ID is required for Zep Memory');
+    }
+
+    if (autoCreate) {
+      await ensureThread(this, baseUrl, threadId, userId);
+    }
+
     const adapter = new ZepV3MemoryAdapter(this, baseUrl, threadId, mode, returnContext);
 
     const item: INodeExecutionData = {
       json: {},
-      // n8n will pick this up when wired to the AI node via ai_memory port
       context: {
         ai: {
           memory: adapter,

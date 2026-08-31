@@ -1,6 +1,7 @@
 # n8n-nodes-zep-v3
 
 [![npm version](https://badge.fury.io/js/n8n-nodes-zep-v3.svg)](https://www.npmjs.com/package/n8n-nodes-zep-v3)
+[![CI](https://github.com/fabiohsan/n8n-nodes-zep-v3/actions/workflows/ci.yml/badge.svg)](https://github.com/fabiohsan/n8n-nodes-zep-v3/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Community node package that **replicates 100%** of the deprecated Zep nodes using **Zep API v3 semantics** (threads & user context) while preserving the **same UX** in n8n.
@@ -289,14 +290,17 @@ export N8N_LOG_LEVEL=debug
 
 ### Manual Testing
 ```bash
-# Run type checking
+# Run type checking and linting
 npm run lint
 
-# Build package
+# Build package (cross-platform)
 npm run build
 
-# Test in development n8n instance
-npm run watch  # for development
+# Run node and credential load tests
+npm test
+
+# Development watch mode
+npm run watch
 ```
 
 ### Integration Testing
@@ -304,6 +308,20 @@ npm run watch  # for development
 2. Send test messages through AI Agent
 3. Verify memory persistence across conversations
 4. Test vector search with sample documents
+
+## 📝 Changelog
+
+### v0.1.7
+- 🔐 **Fixed HTTP Authentication**: Migrated all API calls in `ZepMemory` and `ZepVectorStore` to `httpRequestWithAuthentication` to ensure `Authorization: Api-Key <token>` headers are properly attached.
+- 🤖 **Native n8n AI Agent Support**: Implemented `supplyData()` in `ZepMemory` (`zepMemoryV3`) for seamless connection to AI Agent and Chat nodes via the `ai_memory` port, while preserving `execute()` for backward compatibility.
+- 🛠️ **Cross-Platform Build**: Replaced Unix-specific `cp` with `copyfiles` so `npm run build` works out of the box on Windows, macOS, and Linux.
+- 🚨 **Robust Error Handling**: Added `NodeApiError` / `NodeOperationError` wrapping with full support for `continueOnFail`.
+- 📦 **Vector Store Multi-item & Metadata Parsing**: Added safe parsing for string/JSON `metadata` and fixed item batching with `pairedItem` linking.
+- 🔍 **Linting & Code Quality**: Configured ESLint with `eslint-plugin-n8n-nodes-base` (community preset) and Prettier.
+- 🚀 **Automated CI/CD**: Added GitHub Actions workflow matrix (Node 18/20 on Ubuntu and Windows).
+
+### v0.1.6
+- Initial release with Zep Memory (v3) and Zep Vector Store (v3) community nodes.
 
 ## 🤝 Contributing
 

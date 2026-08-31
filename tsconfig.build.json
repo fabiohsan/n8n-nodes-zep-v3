@@ -11,5 +11,5 @@
     "resolveJsonModule": true,
     "strict": true
   },
-  "include": ["index.ts", "credentials/**/*.ts", "nodes/**/*.ts"]
+  "include": ["credentials/**/*.ts", "nodes/**/*.ts"]
 }
